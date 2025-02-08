@@ -74,53 +74,72 @@ export class SongProcessingService {
     return allSongs;
   }
 
-  private async processSong(video: VideoWithChannel, songType: 'original' | 'cover'): Promise<void> {
+  private async processSongs(videos: VideoWithChannel[], songType: 'original' | 'cover'): Promise<void> {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const publishedAt = new Date(video.published_at);
     
-    // Skip videos newer than 7 days
-    if (publishedAt > sevenDaysAgo) {
+    // Filter out videos newer than 7 days
+    const videosToProcess = videos.filter(video => {
+      const publishedAt = new Date(video.published_at);
+      return publishedAt <= sevenDaysAgo;
+    });
+
+    if (videosToProcess.length === 0) {
       return;
     }
 
-    // Get additional details from YouTube API
-    const youtubeData = CALL_YOUTUBE ? {
+    // Get additional details from YouTube API in batch
+    const youtubeData = CALL_YOUTUBE ? videosToProcess.map(video => ({
+      id: video.id,
       statistics: {
         viewCount: '' + Math.floor(Math.random() * 1000000),
         likeCount: '' + Math.floor(Math.random() * 1000000)
       }
-    } : await this.youtubeVideoService.getVideoById(video.id);
-    if (!youtubeData) {
-      return;
-    }
+    })) : await this.youtubeVideoService.getVideosByIds(videosToProcess.map(video => video.id));
 
-    // dunno why suborg starts with 2 random characters
-    if (video.channel.suborg) {
-      video.channel.suborg = video.channel.suborg.slice(2);
-    }
+    // Create a map of video data for easy lookup
+    const youtubeDataMap = new Map(youtubeData.map(data => [data.id, data]));
 
-    const songData: SongData = {
-      id: video.id,
-      title: video.title,
-      channel_id: video.channel_id,
-      channel: video.channel,
-      published_at: video.published_at,
-      available_at: video.available_at,
-      song_type: songType,
-      duration: video.duration,
-      status: video.status,
-      youtube_view_count: youtubeData.statistics.viewCount,
-      youtube_like_count: youtubeData.statistics.likeCount,
-      processed_at: new Date().toISOString(),
-      mentions: video.mentions ?? [],
-      thumbnail_url: `https://img.youtube.com/vi/${video.id}/0.jpg`
-    }
+    // Process each video and prepare for batch DB update
+    const songsToStore: SongData[] = videosToProcess.map(video => {
+      const youtubeStats = youtubeDataMap.get(video.id)?.statistics;
+      if (!youtubeStats) {
+        this.logger.warn(`No YouTube data found for video ${video.id}`);
+        return null;
+      }
 
-    // Store or update the data in DynamoDB
-    await this.dynamoDBService.put('hololive_songs', songData);
+      // Clean up suborg if needed
+      if (video.channel.suborg) {
+        video.channel.suborg = video.channel.suborg.slice(2);
+      }
 
-    this.logger.log(`Processed ${songType} song: ${video.title}`);
+      return {
+        id: video.id,
+        title: video.title,
+        channel_id: video.channel_id,
+        channel: video.channel,
+        published_at: video.published_at,
+        available_at: video.available_at,
+        song_type: songType,
+        duration: video.duration,
+        status: video.status,
+        youtube_view_count: youtubeStats.viewCount,
+        youtube_like_count: youtubeStats.likeCount,
+        processed_at: new Date().toISOString(),
+        mentions: video.mentions ?? [],
+        thumbnail_url: `https://img.youtube.com/vi/${video.id}/0.jpg`
+      };
+    }).filter(song => song !== null);
+
+    // Store all songs in DynamoDB
+    await Promise.all(
+      songsToStore.map(song => 
+        this.dynamoDBService.put('hololive_songs', song)
+          .catch(error => this.logger.error(`Error storing song ${song.id}:`, error))
+      )
+    );
+
+    this.logger.log(`Processed ${songsToStore.length} ${songType} songs in batch`);
   }
 
   async fetchAndFilterSongs() {
@@ -169,16 +188,12 @@ export class SongProcessingService {
       this.logger.log(`Found ${originalSongs.length} original songs and ${coverSongs.length} covers`);
 
       // Process songs in batches
-      const batchSize = 5;
+      const batchSize = 50; // Increased batch size since we're using batch API
       const processSongsBatch = async (songs: VideoWithChannel[], type: 'original' | 'cover') => {
         for (let i = 0; i < songs.length; i += batchSize) {
           const batch = songs.slice(i, i + batchSize);
-          await Promise.all(
-            batch.map(song => 
-              this.processSong(song, type)
-                .catch(error => this.logger.error(`Error processing ${type} song ${song.id}:`, error))
-            )
-          );
+          await this.processSongs(batch, type)
+            .catch(error => this.logger.error(`Error processing batch of ${type} songs:`, error));
           this.logger.debug(`Processed batch ${i / batchSize + 1} of ${Math.ceil(songs.length / batchSize)} for ${type} songs`);
         }
       };
