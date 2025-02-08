@@ -31,7 +31,7 @@ export interface GroupedSongs {
 }
 
 // when DEBUG we don't call youtube api
-const DEBUG = true;
+const DEBUG = process.env.DEBUG === 'true';
 
 @Injectable()
 export class SongProcessingService {

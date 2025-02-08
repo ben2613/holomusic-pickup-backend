@@ -18,6 +18,7 @@ provider:
     DYNAMODB_REGION: ${self:provider.region}
     HOLODEX_API_KEY: ${env:HOLODEX_API_KEY}
     YOUTUBE_API_KEY: ${env:YOUTUBE_API_KEY}
+    DEBUG: ${env:DEBUG, 'false'}
     # DynamoDB endpoint - only set in local development
     DYNAMODB_ENDPOINT: ${self:custom.dynamodbEndpoint.DYNAMODB_ENDPOINT, ''}
   iam:
