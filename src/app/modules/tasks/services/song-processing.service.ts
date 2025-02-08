@@ -387,20 +387,20 @@ export class SongProcessingService {
 
       const playlistsToCreate = [
         {
-          title: `Holostars Original Songs Picks`,
-          description: 'Automatically picked original songs from Holostars members',
-        },
-        {
-          title: `Holostars Cover Songs Picks`,
-          description: 'Automatically picked cover songs from Holostars members',
-        },
-        {
           title: `Hololive Original Songs Picks`,
           description: 'Automatically picked original songs from Hololive members',
         },
         {
           title: `Hololive Cover Songs Picks`,
           description: 'Automatically picked cover songs from Hololive members',
+        },
+        {
+          title: `Holostars Original Songs Picks`,
+          description: 'Automatically picked original songs from Holostars members',
+        },
+        {
+          title: `Holostars Cover Songs Picks`,
+          description: 'Automatically picked cover songs from Holostars members',
         },
       ];
 
@@ -430,19 +430,19 @@ export class SongProcessingService {
       const playlistsWithSongs = [
         {
           ...playlists[0],
-          songs: pickedStarsSongs.originals,
-        },
-        {
-          ...playlists[1],
-          songs: pickedStarsSongs.covers,
-        },
-        {
-          ...playlists[2],
           songs: pickedGirlsSongs.originals,
         },
         {
-          ...playlists[3],
+          ...playlists[1],
           songs: pickedGirlsSongs.covers,
+        },
+        {
+          ...playlists[2],
+          songs: pickedStarsSongs.originals,
+        },
+        {
+          ...playlists[3],
+          songs: pickedStarsSongs.covers,
         },
       ];
 
