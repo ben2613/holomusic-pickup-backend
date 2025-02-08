@@ -70,12 +70,12 @@ functions:
             allowCredentials: false
           private: false
       - schedule:
-          rate: cron(0 0 * * ? *) # Run at midnight UTC every day
+          rate: cron(0 9 * * ? *) # Run at 9 AM UTC (midnight PST) after Google API quotas reset
           enabled: true
           input:
             task: checkOAuthToken
       - schedule:
-          rate: cron(0 1 * * ? *) # Run at 1 AM UTC every day
+          rate: cron(0 10 * * ? *) # Run at 10 AM UTC (1 AM PST)
           enabled: false
           input:
             task: fetchAndFilterSongs
