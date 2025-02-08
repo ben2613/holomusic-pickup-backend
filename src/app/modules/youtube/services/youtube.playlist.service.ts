@@ -101,9 +101,19 @@ export class YouTubePlaylistService {
   }
 
   async addVideosToPlaylist(playlistId: string, videoIds: string[]): Promise<void> {
+    let successCount = 0;
     // Add videos sequentially to respect API quotas
-    for (const videoId of videoIds) {
-      await this.addVideoToPlaylist(playlistId, videoId);
+    for (let i = 0; i < videoIds.length && successCount < parseInt(process.env.SONGS_TO_PICK || '50'); i++) {
+      // we fetch more than needed to avoid throwing an error for some videos
+      const videoId = videoIds[i];
+      try {
+        await this.addVideoToPlaylist(playlistId, videoId);
+        successCount++;
+        // wait 1 second to avoid 409 ?
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        this.logger.error(`Failed to add video to playlist: ${videoId}`, error);
+      }
     }
   }
 

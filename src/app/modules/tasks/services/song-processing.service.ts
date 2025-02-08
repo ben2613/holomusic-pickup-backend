@@ -217,7 +217,7 @@ export class SongProcessingService {
 
   private pickSongsWithWeights(songs: SongData[]): SongData[] {
     const pickedSongs: SongData[] = [];
-    const numToPick = Math.min(20, songs.length);
+    const numToPick = Math.min(parseInt(process.env.SONGS_TO_PICK || '50') + 10, songs.length);
     const remainingSongs = [...songs];
 
     for (let i = 0; i < numToPick; i++) {
