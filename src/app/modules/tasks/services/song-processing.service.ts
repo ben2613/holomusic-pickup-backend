@@ -31,7 +31,7 @@ export interface GroupedSongs {
 }
 
 // when DEBUG we don't call youtube api
-const DEBUG = process.env.DEBUG === 'true';
+const CALL_YOUTUBE = process.env.CALL_YOUTUBE === 'true';
 
 @Injectable()
 export class SongProcessingService {
@@ -85,7 +85,7 @@ export class SongProcessingService {
     }
 
     // Get additional details from YouTube API
-    const youtubeData = DEBUG ? {
+    const youtubeData = CALL_YOUTUBE ? {
       statistics: {
         viewCount: '' + Math.floor(Math.random() * 1000000),
         likeCount: '' + Math.floor(Math.random() * 1000000)
@@ -356,7 +356,7 @@ export class SongProcessingService {
           continue;
         }
 
-        if (!DEBUG) {
+        if (!CALL_YOUTUBE) {
           this.logger.debug(`Creating playlist: ${playlist.title}`);
           const playlistId = await this.youtubePlaylistService.createPlaylistIfNotExists(
             playlist.title,
