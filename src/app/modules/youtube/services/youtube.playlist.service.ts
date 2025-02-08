@@ -63,6 +63,7 @@ export class YouTubePlaylistService {
       this.logger.debug(`Found ${items.length} items to remove from playlist ${id}`);
       
       for (const item of items) {
+        this.logger.debug(`Removing item: ${item.id} from playlist ${id}`);
         await firstValueFrom(
           this.httpService.delete(`${this.apiUrl}/playlistItems`, {
             params: { part: 'id', id: item.id },
