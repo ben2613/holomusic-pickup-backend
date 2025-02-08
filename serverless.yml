@@ -32,13 +32,15 @@ provider:
             - dynamodb:DeleteItem
             - dynamodb:Scan
             - dynamodb:Query
+            - dynamodb:BatchWriteItem
           Resource:
             - !GetAtt HololiveSongsTable.Arn
 
 functions:
   api:
     handler: src/lambda.handler
-    timeout: 60 # 1 minute
+    timeout: 600 # 10 minute
+    memorySize: 512
     events:
       - http:
           path: /auth/oauth/callback
@@ -120,7 +122,17 @@ custom:
     webpackConfig: 'webpack.config.js'
     packager: 'npm'
     excludeFiles: src/**/*.test.ts
-    includeModules: true
+    includeModules:
+      forceExclude:
+        - '@aws-sdk/client-dynamodb'
+        - '@aws-sdk/lib-dynamodb'
+        - '@aws-sdk/util-dynamodb'
+        - 'aws-lambda'
+        - '@aws-sdk/smithy-client'
+        - '@aws-sdk/types'
+        - '@aws-sdk/util-utf8'
+        - '@aws-sdk/middleware-retry'
+        - '@aws-sdk/protocol-http'
   serverless-offline:
     noPrependStageInUrl: true
     useChildProcesses: true
