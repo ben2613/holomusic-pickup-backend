@@ -19,6 +19,7 @@ provider:
     HOLODEX_API_KEY: ${env:HOLODEX_API_KEY}
     YOUTUBE_API_KEY: ${env:YOUTUBE_API_KEY}
     CALL_YOUTUBE: ${env:CALL_YOUTUBE, 'true'}
+    SONGS_TO_PICK: ${env:SONGS_TO_PICK, '50'}
     # DynamoDB endpoint - only set in local development
     DYNAMODB_ENDPOINT: ${self:custom.dynamodbEndpoint.DYNAMODB_ENDPOINT, ''}
   iam:
