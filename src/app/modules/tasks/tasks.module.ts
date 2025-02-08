@@ -7,6 +7,7 @@ import { DynamoDBModule } from '../dynamodb/dynamodb.module';
 import { DiscordModule } from '../discord/discord.module';
 import { SongProcessingService } from './services/song-processing.service';
 import { OAuthService } from './services/oauth.service';
+import { SongFilterService } from './services/song-filter.service';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { OAuthService } from './services/oauth.service';
     TasksService,
     SongProcessingService,
     OAuthService,
+    SongFilterService,
   ],
   exports: [TasksService],
 })
