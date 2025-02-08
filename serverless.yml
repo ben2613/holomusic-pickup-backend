@@ -1,0 +1,138 @@
+service: hm-pickup-backend
+
+plugins:
+  - serverless-webpack
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'ap-east-1'}
+  environment:
+    BACKEND_HOST: !Join ['', ['https://', !Ref ApiGatewayRestApi, '.execute-api.', '${self:provider.region}', '.amazonaws.com/${self:provider.stage}']]
+    GOOGLE_OAUTH_CLIENT_ID: ${env:GOOGLE_OAUTH_CLIENT_ID}
+    GOOGLE_OAUTH_CLIENT_SECRET: ${env:GOOGLE_OAUTH_CLIENT_SECRET}
+    DISCORD_WEBHOOK_URLS: ${env:DISCORD_WEBHOOK_URLS}
+    DYNAMODB_REGION: ${self:provider.region}
+    HOLODEX_API_KEY: ${env:HOLODEX_API_KEY}
+    YOUTUBE_API_KEY: ${env:YOUTUBE_API_KEY}
+    # DynamoDB endpoint - only set in local development
+    DYNAMODB_ENDPOINT: ${self:custom.dynamodbEndpoint.DYNAMODB_ENDPOINT, ''}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Scan
+            - dynamodb:Query
+          Resource:
+            - !GetAtt HololiveSongsTable.Arn
+
+functions:
+  api:
+    handler: src/lambda.handler
+    timeout: 60 # 1 minute
+    events:
+      - http:
+          path: /auth/oauth/callback
+          method: get
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Api-Key
+            allowCredentials: false
+          private: false # API key is not required
+          request:
+            parameters:
+              querystrings:
+                code: true # Required query parameter
+      - http:
+          path: /
+          method: get
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Api-Key
+            allowCredentials: false
+          private: false
+      - schedule:
+          rate: cron(0 0 * * ? *) # Run at midnight UTC every day
+          enabled: true
+          input:
+            task: checkOAuthToken
+      - schedule:
+          rate: cron(0 1 * * ? *) # Run at 1 AM UTC every day
+          enabled: false
+          input:
+            task: fetchAndFilterSongs
+
+resources:
+  Resources:
+    HololiveSongsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: hololive_songs
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    # API Gateway response configurations
+    GatewayResponse4XX:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+
+    GatewayResponse5XX:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_5XX
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+
+build:
+  esbuild: false
+
+custom:
+  webpack:
+    webpackConfig: 'webpack.config.js'
+    packager: 'npm'
+    excludeFiles: src/**/*.test.ts
+    includeModules: true
+  serverless-offline:
+    noPrependStageInUrl: true
+    useChildProcesses: true
+    location: .
+    lambdaPort: 3002
+  # Conditional DynamoDB endpoint for local development
+  dynamodbEndpoint: ${file(./serverless/dynamodb-endpoint.js)}
+  offlineHost: 'http://localhost:3000'
+
+package:
+  individually: true
+  patterns:
+    - '!**'
+    - 'dist/**'
+    - 'node_modules/**'
+    - '!node_modules/.yarn/**'  # Exclude yarn cache if using yarn
+    - '!node_modules/.cache/**' # Exclude cache directories
