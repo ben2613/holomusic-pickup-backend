@@ -24,7 +24,7 @@ export class YouTubeVideoService {
       const response = await firstValueFrom(
         this.httpService.get(`${this.apiUrl}/videos`, {
           params: {
-            part: 'snippet,statistics',
+            part: 'statistics',
             id: videoId,
           },
           headers: {
@@ -51,7 +51,7 @@ export class YouTubeVideoService {
       const response = await firstValueFrom(
         this.httpService.get(`${this.apiUrl}/videos`, {
           params: {
-            part: 'snippet,statistics',
+            part: 'statistics',
             id: videoIds.join(','),
           },
           headers: {

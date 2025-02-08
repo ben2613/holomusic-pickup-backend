@@ -89,7 +89,7 @@ export class SongProcessingService {
     }
 
     // Get additional details from YouTube API in batch
-    const youtubeData = CALL_YOUTUBE ? videosToProcess.map(video => ({
+    const youtubeData = !CALL_YOUTUBE ? videosToProcess.map(video => ({
       id: video.id,
       statistics: {
         viewCount: '' + Math.floor(Math.random() * 1000000),
@@ -371,7 +371,7 @@ export class SongProcessingService {
           continue;
         }
 
-        if (!CALL_YOUTUBE) {
+        if (CALL_YOUTUBE) {
           this.logger.debug(`Creating playlist: ${playlist.title}`);
           const playlistId = await this.youtubePlaylistService.createPlaylistIfNotExists(
             playlist.title,
