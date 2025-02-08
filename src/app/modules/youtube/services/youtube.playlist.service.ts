@@ -19,9 +19,16 @@ export class YouTubePlaylistService {
     this.apiUrl = 'https://www.googleapis.com/youtube/v3';
   }
 
-  async createPlaylist(title: string, description: string): Promise<string> {
+  async createPlaylistIfNotExists(title: string, description: string): Promise<string> {
     try {
       const token = await this.authService.getValidAccessToken();
+      const playlists = await this.getPlaylists();
+      const existingPlaylist = playlists.find(playlist => playlist.snippet.title === title);
+      if (existingPlaylist) {
+        // if exists, clear all videos in the playlist
+        await this.clearPlaylist(existingPlaylist.id);
+        return existingPlaylist.id;
+      }
       this.logger.debug(`Creating playlist: ${title}`);
       const response = await firstValueFrom(
         this.httpService.post(
@@ -42,6 +49,24 @@ export class YouTubePlaylistService {
         throw new Error(`Failed to create YouTube playlist: ${error.message}`);
       }
       throw error;
+    }
+  }
+
+  async clearPlaylist(id: string) {
+    const token = await this.authService.getValidAccessToken();
+    const response = await firstValueFrom(
+      this.httpService.get(`${this.apiUrl}/playlistItems`, {
+        params: { part: 'id', playlistId: id },
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    );
+    const items = response.data.items;
+    for (const item of items) {
+      await firstValueFrom(
+        this.httpService.delete(`${this.apiUrl}/playlistItems`, {
+          params: { part: 'id', id: item.id },
+        })
+      );
     }
   }
 

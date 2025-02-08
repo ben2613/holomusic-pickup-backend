@@ -312,25 +312,24 @@ export class SongProcessingService {
     pickedGirlsSongs: GroupedSongs
   ): Promise<void> {
     try {
-      const date = new Date().toISOString();
       const playlists = [
         {
-          title: `Holostars Original Songs Picks - ${date}`,
+          title: `Holostars Original Songs Picks`,
           description: 'Automatically picked original songs from Holostars members',
           songs: pickedStarsSongs.originals,
         },
         {
-          title: `Holostars Cover Songs Picks - ${date}`,
+          title: `Holostars Cover Songs Picks`,
           description: 'Automatically picked cover songs from Holostars members',
           songs: pickedStarsSongs.covers,
         },
         {
-          title: `Hololive Original Songs Picks - ${date}`,
+          title: `Hololive Original Songs Picks`,
           description: 'Automatically picked original songs from Hololive members',
           songs: pickedGirlsSongs.originals,
         },
         {
-          title: `Hololive Cover Songs Picks - ${date}`,
+          title: `Hololive Cover Songs Picks`,
           description: 'Automatically picked cover songs from Hololive members',
           songs: pickedGirlsSongs.covers,
         },
