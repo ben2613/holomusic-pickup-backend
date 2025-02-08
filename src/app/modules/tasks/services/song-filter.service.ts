@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { VideoWithChannel } from '../../holodex/holodex.types';
 import { SongData } from './song-processing.service';
+import { EXCLUDE_VIDEO_IDS } from '@app/const/excludeVideoIds';
 
 @Injectable()
 export class SongFilterService {
@@ -22,6 +23,8 @@ export class SongFilterService {
       filteredSongs = this.filterInstrumentalSongs(filteredSongs);
     }
 
+    filteredSongs = this.filterExcludeVideoIds(filteredSongs);
+
     // Add more filters here as needed
     
     this.logger.debug(`Filtered to ${filteredSongs.length} songs`);
@@ -34,4 +37,8 @@ export class SongFilterService {
   private filterInstrumentalSongs(songs: (VideoWithChannel)[]): (VideoWithChannel)[] {
     return songs.filter(song => !song.title.toLowerCase().includes('instrumental'));
   }
-} 
+
+  private filterExcludeVideoIds(songs: (VideoWithChannel)[]): (VideoWithChannel)[] {
+    return songs.filter(song => !EXCLUDE_VIDEO_IDS.includes(song.id));
+  }
+}
