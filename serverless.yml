@@ -10,6 +10,7 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'ap-east-1'}
   environment:
+    # This would cause error when running offline, comment it out if needed
     BACKEND_HOST: !Join ['', ['https://', !Ref ApiGatewayRestApi, '.execute-api.', '${self:provider.region}', '.amazonaws.com/${self:provider.stage}']]
     GOOGLE_OAUTH_CLIENT_ID: ${env:GOOGLE_OAUTH_CLIENT_ID}
     GOOGLE_OAUTH_CLIENT_SECRET: ${env:GOOGLE_OAUTH_CLIENT_SECRET}

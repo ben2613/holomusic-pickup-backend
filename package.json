@@ -18,7 +18,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "deploy": "serverless deploy",
     "offline": "serverless offline start",
-    "sls:invoke": "serverless invoke local -f api --path external/scehdule-event.json"
+    "sls:invoke": "serverless invoke local -f api --path external/scehdule-event.json",
+    "sls:invoke:fetch": "serverless invoke local -f api --path external/scehdule-event-fetch.json"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.738.0",
