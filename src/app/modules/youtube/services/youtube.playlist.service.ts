@@ -45,28 +45,34 @@ export class YouTubePlaylistService {
       );
       return response.data.id;
     } catch (error) {
-      if (error instanceof AxiosError) {
-        throw new Error(`Failed to create YouTube playlist: ${error.message}`);
-      }
       throw error;
     }
   }
 
   async clearPlaylist(id: string) {
-    const token = await this.authService.getValidAccessToken();
-    const response = await firstValueFrom(
-      this.httpService.get(`${this.apiUrl}/playlistItems`, {
-        params: { part: 'id', playlistId: id },
-        headers: { Authorization: `Bearer ${token}` },
-      })
-    );
-    const items = response.data.items;
-    for (const item of items) {
-      await firstValueFrom(
-        this.httpService.delete(`${this.apiUrl}/playlistItems`, {
-          params: { part: 'id', id: item.id },
+    try {
+      this.logger.debug(`Clearing playlist: ${id}`);
+      const token = await this.authService.getValidAccessToken();
+      const response = await firstValueFrom(
+        this.httpService.get(`${this.apiUrl}/playlistItems`, {
+          params: { part: 'id', playlistId: id },
+          headers: { Authorization: `Bearer ${token}` },
         })
       );
+      const items = response.data.items;
+      this.logger.debug(`Found ${items.length} items to remove from playlist ${id}`);
+      
+      for (const item of items) {
+        await firstValueFrom(
+          this.httpService.delete(`${this.apiUrl}/playlistItems`, {
+            params: { part: 'id', id: item.id },
+          })
+        );
+      }
+      this.logger.log(`Successfully cleared playlist ${id}`);
+    } catch (error) {
+      this.logger.error(`Error clearing playlist ${id}:`, error);
+      throw error;
     }
   }
 
