@@ -5,6 +5,8 @@ import { YouTubePlaylistService } from '../../youtube/services/youtube.playlist.
 import { DynamoDBService } from '../../dynamodb/dynamodb.service';
 import { VideoSearchParams, VideoWithChannel, PaginatedResponse, Channel } from '../../holodex/holodex.types';
 import * as fs from 'fs';
+import { SongFilterService } from './song-filter.service';
+import { OAUTH_DB_KEY } from './oauth.service';
 
 export interface SongData {
   id: string;
@@ -40,6 +42,7 @@ export class SongProcessingService {
     private readonly youtubeVideoService: YouTubeVideoService,
     private readonly youtubePlaylistService: YouTubePlaylistService,
     private readonly dynamoDBService: DynamoDBService,
+    private readonly songFilterService: SongFilterService,
   ) {}
 
   private async fetchAllSongsOfType(params: VideoSearchParams): Promise<VideoWithChannel[]> {
@@ -149,10 +152,19 @@ export class SongProcessingService {
       };
 
       // Fetch all songs first
-      const [originalSongs, coverSongs] = await Promise.all([
+      let [originalSongs, coverSongs] = await Promise.all([
         this.fetchAllSongsOfType(originalParams),
         this.fetchAllSongsOfType(coverParams),
       ]);
+
+      // Apply filters
+      originalSongs = this.songFilterService.filterSongs(originalSongs, {
+        filterInstrumental: true,
+      });
+      
+      coverSongs = this.songFilterService.filterSongs(coverSongs, {
+        filterInstrumental: true,
+      });
 
       this.logger.log(`Found ${originalSongs.length} original songs and ${coverSongs.length} covers`);
 
@@ -241,7 +253,7 @@ export class SongProcessingService {
     };
 
     songs.forEach(song => {
-      const mentionsPlusChannel = [...song.mentions, song.channel];
+      const mentionsPlusChannel = [...(song.mentions || []), song.channel];
       let targetGroup: GroupedSongs;
       if (mentionsPlusChannel.some(mention => (mention.suborg + mention.name).toLowerCase().includes('holostars'))) { 
         targetGroup = starsGroups
@@ -259,12 +271,11 @@ export class SongProcessingService {
     return { starsGroups, girlsGroups };
   }
 
-  async pickLessPopularSongs(): Promise<void> {
+  async pickLessPopularSongs(): Promise<{ stars: GroupedSongs; girls: GroupedSongs }> {
     try {
       this.logger.debug('Starting to pick popular songs...');
 
-      let songs = await this.dynamoDBService.scan<SongData>('hololive_songs');
-      songs = songs.filter(song => !song.title.toLowerCase().includes('instructmental'));
+      const songs = (await this.dynamoDBService.scan<SongData>('hololive_songs')).filter(song => song.id !== OAUTH_DB_KEY);
 
       const { starsGroups, girlsGroups } = this.groupSongsByChannelOrMentionsContainsStars(songs);
 
@@ -287,13 +298,11 @@ export class SongProcessingService {
       pickedGirlsSongs.originals = this.sortSongsByViews(pickedGirlsSongs.originals);
       pickedGirlsSongs.covers = this.sortSongsByViews(pickedGirlsSongs.covers);
 
-      fs.writeFileSync('picked_songs.json', JSON.stringify({
-        stars: pickedStarsSongs,
-        girls: pickedGirlsSongs
-      }, null, 2));
-
-      if (!DEBUG) {
-        await this.createYouTubePlaylists(pickedStarsSongs, pickedGirlsSongs);
+      if (process.env.IS_LOCAL) {
+        fs.writeFileSync('picked_songs.json', JSON.stringify({
+          stars: pickedStarsSongs,
+          girls: pickedGirlsSongs
+        }, null, 2));
       }
 
       this.logger.log(
@@ -301,13 +310,18 @@ export class SongProcessingService {
         `Stars group: ${starsGroups.originals.length} originals, ${starsGroups.covers.length} covers\n` +
         `Girls group: ${girlsGroups.originals.length} originals, ${girlsGroups.covers.length} covers`
       );
+
+      return {
+        stars: pickedStarsSongs,
+        girls: pickedGirlsSongs
+      };
     } catch (error) {
-      this.logger.error('Error picking popular songs:', error);
+      this.logger.error('Error picking less popular songs:', error);
       throw error;
     }
   }
 
-  private async createYouTubePlaylists(
+  async createYouTubePlaylists(
     pickedStarsSongs: GroupedSongs,
     pickedGirlsSongs: GroupedSongs
   ): Promise<void> {
@@ -342,9 +356,9 @@ export class SongProcessingService {
           continue;
         }
 
-        if (DEBUG) {
+        if (!DEBUG) {
           this.logger.debug(`Creating playlist: ${playlist.title}`);
-          const playlistId = await this.youtubePlaylistService.createPlaylist(
+          const playlistId = await this.youtubePlaylistService.createPlaylistIfNotExists(
             playlist.title,
             playlist.description
           );

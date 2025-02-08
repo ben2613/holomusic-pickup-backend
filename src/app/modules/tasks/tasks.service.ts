@@ -14,7 +14,8 @@ export class TasksService {
   async fetchAndFilterSongs(): Promise<void> {
     this.logger.log('Starting fetchAndFilterSongs task...');
     await this.songProcessingService.fetchAndFilterSongs();
-    await this.songProcessingService.pickLessPopularSongs();
+    const { stars, girls } = await this.songProcessingService.pickLessPopularSongs();
+    await this.songProcessingService.createYouTubePlaylists(stars, girls);
     this.logger.log('Completed fetchAndFilterSongs task');
   }
 
