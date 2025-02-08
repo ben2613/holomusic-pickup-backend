@@ -66,7 +66,11 @@ export class YouTubePlaylistService {
         this.logger.debug(`Removing item: ${item.id} from playlist ${id}`);
         await firstValueFrom(
           this.httpService.delete(`${this.apiUrl}/playlistItems`, {
-            params: { part: 'id', id: item.id },
+            params: { id: item.id },
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/json'
+            },
           })
         );
       }
@@ -109,19 +113,22 @@ export class YouTubePlaylistService {
 
   async addVideosToPlaylist(playlistId: string, videoIds: string[]): Promise<void> {
     let successCount = 0;
+    const maxVideos = parseInt(process.env.SONGS_TO_PICK || '50');
     // Add videos sequentially to respect API quotas
-    for (let i = 0; i < videoIds.length && successCount < parseInt(process.env.SONGS_TO_PICK || '50'); i++) {
-      // we fetch more than needed to avoid throwing an error for some videos
+    for (let i = 0; i < videoIds.length; i++) {
+      if (successCount >= maxVideos) break; // Break if we've reached the maximum
+      
       const videoId = videoIds[i];
       try {
         await this.addVideoToPlaylist(playlistId, videoId);
         successCount++;
-        // wait 1 second to avoid 409 ?
         await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
         this.logger.error(`Failed to add video to playlist: ${videoId}`, error);
       }
     }
+    
+    this.logger.log(`Successfully added ${successCount} videos to playlist ${playlistId}`);
   }
 
   async getPlaylists(): Promise<YouTubePlaylist[]> {
