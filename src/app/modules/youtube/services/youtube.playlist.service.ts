@@ -35,7 +35,7 @@ export class YouTubePlaylistService {
           `${this.apiUrl}/playlists`,
           {
             snippet: { title, description },
-            status: { privacyStatus: 'private' },
+            status: { privacyStatus: 'public' },
           },
           {
             params: { part: 'snippet,status' },
@@ -104,49 +104,6 @@ export class YouTubePlaylistService {
     // Add videos sequentially to respect API quotas
     for (const videoId of videoIds) {
       await this.addVideoToPlaylist(playlistId, videoId);
-    }
-  }
-
-  async updatePlaylistPrivacy(playlistId: string, privacyStatus: 'private' | 'unlisted' | 'public'): Promise<void> {
-    try {
-      const token = await this.authService.getValidAccessToken();
-      this.logger.debug(`Updating playlist ${playlistId} privacy to ${privacyStatus}`);
-      const response = await firstValueFrom(
-        this.httpService.get(`${this.apiUrl}/playlists`, {
-          params: { part: 'snippet,status', id: playlistId },
-          headers: { Authorization: `Bearer ${token}` },
-        })
-      );
-
-      const playlist = response.data.items[0];
-      if (!playlist) {
-        throw new Error(`Playlist ${playlistId} not found`);
-      }
-
-      await firstValueFrom(
-        this.httpService.put(
-          `${this.apiUrl}/playlists`,
-          {
-            id: playlistId,
-            snippet: {
-              title: playlist.snippet.title,
-              description: playlist.snippet.description,
-            },
-            status: { privacyStatus },
-          },
-          {
-            params: { part: 'snippet,status' },
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        )
-      );
-      this.logger.debug(`Successfully updated playlist ${playlistId} privacy to ${privacyStatus}`);
-    } catch (error) {
-      if (error instanceof AxiosError) {
-        this.logger.error('Failed to update playlist privacy:', error.response?.data || error.message);
-        throw new Error(`Failed to update playlist privacy: ${error.response?.data?.error?.message || error.message}`);
-      }
-      throw error;
     }
   }
 

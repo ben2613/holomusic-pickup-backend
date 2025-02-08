@@ -371,11 +371,6 @@ export class SongProcessingService {
           this.logger.log(`Created playlist: ${playlist.title} (${playlistId})`);
         }
       }
-
-      // make all playlists public after all songs are added
-      for (const playlistId of playlistIds) {
-        await this.youtubePlaylistService.updatePlaylistPrivacy(playlistId, 'public');
-      }
     } catch (error) {
       this.logger.error('Error creating YouTube playlists:', error);
       throw error;
