@@ -336,58 +336,119 @@ export class SongProcessingService {
     }
   }
 
-  async createYouTubePlaylists(
-    pickedStarsSongs: GroupedSongs,
-    pickedGirlsSongs: GroupedSongs
-  ): Promise<void> {
+  private async createPlaylists(playlists: { title: string; description: string }[]): Promise<string[]> {
+    const playlistIds: string[] = [];
+    
+    for (const playlist of playlists) {
+      try {
+        this.logger.debug(`Creating playlist: ${playlist.title}`);
+        const playlistId = await this.youtubePlaylistService.createPlaylistIfNotExists(
+          playlist.title,
+          playlist.description
+        );
+        playlistIds.push(playlistId);
+        this.logger.log(`Created playlist: ${playlist.title} (${playlistId})`);
+      } catch (error) {
+        this.logger.error(`Error creating playlist ${playlist.title}:`, error);
+        throw error;
+      }
+    }
+    
+    return playlistIds;
+  }
+
+  private async addVideosToPlaylists(playlistsWithIds: { id: string; title: string; songs: SongData[] }[]): Promise<void> {
+    for (const playlist of playlistsWithIds) {
+      if (playlist.songs.length === 0) {
+        this.logger.debug(`Skipping empty playlist: ${playlist.title}`);
+        continue;
+      }
+
+      try {
+        this.logger.debug(`Adding ${playlist.songs.length} songs to playlist ${playlist.title}`);
+        await this.youtubePlaylistService.addVideosToPlaylist(
+          playlist.id,
+          playlist.songs.map(song => song.id)
+        );
+        this.logger.log(`Added videos to playlist: ${playlist.title} (${playlist.id})`);
+      } catch (error) {
+        this.logger.error(`Error adding videos to playlist ${playlist.title}:`, error);
+        throw error;
+      }
+    }
+  }
+
+  async createYouTubePlaylists(): Promise<{ id: string; title: string; description: string }[]> {
     try {
-      const playlists = [
+      if (!CALL_YOUTUBE) {
+        this.logger.debug('Skipping YouTube playlist creation (CALL_YOUTUBE is false)');
+        return [];
+      }
+
+      const playlistsToCreate = [
         {
           title: `Holostars Original Songs Picks`,
           description: 'Automatically picked original songs from Holostars members',
-          songs: pickedStarsSongs.originals,
         },
         {
           title: `Holostars Cover Songs Picks`,
           description: 'Automatically picked cover songs from Holostars members',
-          songs: pickedStarsSongs.covers,
         },
         {
           title: `Hololive Original Songs Picks`,
           description: 'Automatically picked original songs from Hololive members',
-          songs: pickedGirlsSongs.originals,
         },
         {
           title: `Hololive Cover Songs Picks`,
           description: 'Automatically picked cover songs from Hololive members',
+        },
+      ];
+
+      // Create all playlists and return their metadata
+      const playlistIds = await this.createPlaylists(playlistsToCreate);
+      return playlistsToCreate.map((playlist, index) => ({
+        ...playlist,
+        id: playlistIds[index],
+      }));
+    } catch (error) {
+      this.logger.error('Error creating YouTube playlists:', error);
+      throw error;
+    }
+  }
+
+  async insertIntoYouTubePlaylists(
+    playlists: { id: string; title: string; description: string }[],
+    pickedStarsSongs: GroupedSongs,
+    pickedGirlsSongs: GroupedSongs
+  ): Promise<void> {
+    try {
+      if (!CALL_YOUTUBE) {
+        this.logger.debug('Skipping YouTube playlist video insertion (CALL_YOUTUBE is false)');
+        return;
+      }
+
+      const playlistsWithSongs = [
+        {
+          ...playlists[0],
+          songs: pickedStarsSongs.originals,
+        },
+        {
+          ...playlists[1],
+          songs: pickedStarsSongs.covers,
+        },
+        {
+          ...playlists[2],
+          songs: pickedGirlsSongs.originals,
+        },
+        {
+          ...playlists[3],
           songs: pickedGirlsSongs.covers,
         },
       ];
 
-      const playlistIds = [];
-      for (const playlist of playlists) {
-        if (playlist.songs.length === 0) {
-          this.logger.debug(`Skipping empty playlist: ${playlist.title}`);
-          continue;
-        }
-
-        if (CALL_YOUTUBE) {
-          this.logger.debug(`Creating playlist: ${playlist.title}`);
-          const playlistId = await this.youtubePlaylistService.createPlaylistIfNotExists(
-            playlist.title,
-            playlist.description
-          );
-          playlistIds.push(playlistId);
-          this.logger.debug(`Adding ${playlist.songs.length} songs to playlist ${playlist.title}`);
-          await this.youtubePlaylistService.addVideosToPlaylist(
-            playlistId,
-            playlist.songs.map(song => song.id)
-          );
-          this.logger.log(`Created playlist: ${playlist.title} (${playlistId})`);
-        }
-      }
+      await this.addVideosToPlaylists(playlistsWithSongs);
     } catch (error) {
-      this.logger.error('Error creating YouTube playlists:', error);
+      this.logger.error('Error inserting videos into YouTube playlists:', error);
       throw error;
     }
   }

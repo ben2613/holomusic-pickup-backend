@@ -12,10 +12,11 @@ export class TasksService {
   ) {}
 
   async fetchAndFilterSongs(): Promise<void> {
+    const playlists = await this.songProcessingService.createYouTubePlaylists();
     this.logger.log('Starting fetchAndFilterSongs task...');
     await this.songProcessingService.fetchAndFilterSongs();
     const { stars, girls } = await this.songProcessingService.pickLessPopularSongs();
-    await this.songProcessingService.createYouTubePlaylists(stars, girls);
+    await this.songProcessingService.insertIntoYouTubePlaylists(playlists, stars, girls);
     this.logger.log('Completed fetchAndFilterSongs task');
   }
 
