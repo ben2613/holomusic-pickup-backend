@@ -47,6 +47,7 @@ export class OAuthService {
     const scopes = [
       'https://www.googleapis.com/auth/youtube',
       'https://www.googleapis.com/auth/youtube.force-ssl',
+      'https://www.googleapis.com/auth/youtubepartner',
     ];
 
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
