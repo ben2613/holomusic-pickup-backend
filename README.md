@@ -12,6 +12,50 @@ A serverless backend service that automatically tracks and filters Hololive musi
 - 🔔 Discord webhook integration for notifications
 - ☁️ Serverless deployment on AWS Lambda
 
+## Song Selection Algorithm
+
+The application uses a sophisticated weighted random selection algorithm to pick songs for playlists, designed to surface both popular and lesser-known songs. Here's how it works:
+
+1. **Song Categorization**
+   - Songs are first divided into four categories:
+     - Hololive Original Songs
+     - Hololive Cover Songs
+     - Holostars Original Songs
+     - Holostars Cover Songs
+   - Songs are identified as Holostars content if either the channel or any mentioned collaborators are from Holostars
+
+2. **View-Based Sorting**
+   - Within each category, songs are sorted by view count in descending order
+   - This creates a ranking where index 0 is the most viewed song
+
+3. **Weighted Random Selection**
+   - Songs are picked using a weighted probability system based on their position:
+     ```
+     Top 10% of songs:    1x weight
+     10-20% position:     2x weight
+     20-30% position:     4x weight
+     30-40% position:     8x weight
+     40-50% position:    16x weight
+     50-60% position:    32x weight
+     60-70% position:    64x weight
+     70-80% position:   128x weight
+     80-90% position:   256x weight
+     Bottom 10%:        512x weight
+     ```
+   - This exponential weighting gives less viewed songs a significantly higher chance of being selected
+   - Each time a song is picked, it's removed from the pool to avoid duplicates
+
+4. **Playlist Creation**
+   - Up to 50 songs are selected for each category
+   - Selected songs are added to their respective playlists
+   - Playlists are cleared and recreated daily to ensure fresh content
+
+This algorithm ensures that:
+- Less popular songs get more exposure
+- Popular songs still have a chance to be included
+- Each category maintains its own selection pool
+- The selection process is random but weighted towards discovering hidden gems
+
 ## Prerequisites
 
 - Node.js 18.x
