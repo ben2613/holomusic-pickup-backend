@@ -76,7 +76,7 @@ functions:
             task: checkOAuthToken
       - schedule:
           rate: cron(0 10 * * ? *) # Run at 10 AM UTC (1 AM PST)
-          enabled: false
+          enabled: true
           input:
             task: fetchAndFilterSongs
 
