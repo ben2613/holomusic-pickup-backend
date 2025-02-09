@@ -53,27 +53,42 @@ export class YouTubePlaylistService {
     try {
       this.logger.debug(`Clearing playlist: ${id}`);
       const token = await this.authService.getValidAccessToken();
-      const response = await firstValueFrom(
-        this.httpService.get(`${this.apiUrl}/playlistItems`, {
-          params: { part: 'id', playlistId: id },
-          headers: { Authorization: `Bearer ${token}` },
-        })
-      );
-      const items = response.data.items;
-      this.logger.debug(`Found ${items.length} items to remove from playlist ${id}`);
+      let pageToken: string | undefined;
       
-      for (const item of items) {
-        this.logger.debug(`Removing item: ${item.id} from playlist ${id}`);
-        await firstValueFrom(
-          this.httpService.delete(`${this.apiUrl}/playlistItems`, {
-            params: { id: item.id },
-            headers: { 
-              Authorization: `Bearer ${token}`,
-              Accept: 'application/json'
+      do {
+        const response = await firstValueFrom(
+          this.httpService.get(`${this.apiUrl}/playlistItems`, {
+            params: {
+              part: 'id',
+              playlistId: id,
+              maxResults: 50,
+              ...(pageToken && { pageToken }),
             },
+            headers: { Authorization: `Bearer ${token}` },
           })
         );
-      }
+        
+        const items = response.data.items;
+        pageToken = response.data.nextPageToken;
+        
+        this.logger.debug(`Found ${items.length} items to remove from playlist ${id}`);
+        
+        for (const item of items) {
+          this.logger.debug(`Removing item: ${item.id} from playlist ${id}`);
+          await firstValueFrom(
+            this.httpService.delete(`${this.apiUrl}/playlistItems`, {
+              params: { id: item.id },
+              headers: { 
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/json'
+              },
+            })
+          );
+          // Add a small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } while (pageToken);
+      
       this.logger.log(`Successfully cleared playlist ${id}`);
     } catch (error) {
       this.logger.error(`Error clearing playlist ${id}:`, error);
