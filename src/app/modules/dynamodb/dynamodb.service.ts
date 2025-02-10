@@ -104,6 +104,7 @@ export class DynamoDBService {
     filterExpression?: string,
     expressionAttributeValues?: Record<string, any>,
     expressionAttributeNames?: Record<string, string>,
+    immediateReturn: boolean = false,
   ): Promise<T[]> {
     const items: T[] = [];
     let lastEvaluatedKey: Record<string, any> | undefined;
@@ -125,12 +126,23 @@ export class DynamoDBService {
       }
       
       lastEvaluatedKey = response.LastEvaluatedKey;
+      
+      // Return after first scan if immediateReturn is true
+      if (immediateReturn) {
+        break;
+      }
     } while (lastEvaluatedKey);
 
     return items;
   }
 
-  async batchWrite(tableName: string, writeRequests: { DeleteRequest: { Key: Record<string, any> } }[]): Promise<void> {
+  async batchWrite(
+    tableName: string, 
+    writeRequests: Array<{ 
+      DeleteRequest?: { Key: Record<string, any> },
+      PutRequest?: { Item: Record<string, any> }
+    }>
+  ): Promise<void> {
     const params: BatchWriteCommandInput = {
       RequestItems: {
         [tableName]: writeRequests

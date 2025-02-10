@@ -75,39 +75,21 @@ export class SongProcessingService {
   }
 
   private async processSongs(videos: VideoWithChannel[], songType: 'original' | 'cover'): Promise<void> {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
     
-    // Filter out videos newer than 7 days
+    // Filter out videos older than 14 days
     const videosToProcess = videos.filter(video => {
       const publishedAt = new Date(video.published_at);
-      return publishedAt <= sevenDaysAgo;
+      return publishedAt >= fourteenDaysAgo;
     });
 
     if (videosToProcess.length === 0) {
       return;
     }
 
-    // Get additional details from YouTube API in batch
-    const youtubeData = !CALL_YOUTUBE ? videosToProcess.map(video => ({
-      id: video.id,
-      statistics: {
-        viewCount: '' + Math.floor(Math.random() * 1000000),
-        likeCount: '' + Math.floor(Math.random() * 1000000)
-      }
-    })) : await this.youtubeVideoService.getVideosByIds(videosToProcess.map(video => video.id));
-
-    // Create a map of video data for easy lookup
-    const youtubeDataMap = new Map(youtubeData.map(data => [data.id, data]));
-
-    // Process each video and prepare for batch DB update
+    // Process each video and prepare for DB update
     const songsToStore: SongData[] = videosToProcess.map(video => {
-      const youtubeStats = youtubeDataMap.get(video.id)?.statistics;
-      if (!youtubeStats) {
-        this.logger.warn(`No YouTube data found for video ${video.id}`);
-        return null;
-      }
-
       // Clean up suborg if needed
       if (video.channel.suborg) {
         video.channel.suborg = video.channel.suborg.slice(2);
@@ -123,51 +105,63 @@ export class SongProcessingService {
         song_type: songType,
         duration: video.duration,
         status: video.status,
-        youtube_view_count: youtubeStats.viewCount,
-        youtube_like_count: youtubeStats.likeCount,
+        youtube_view_count: '0', // Will be updated by updateAllSongsViewCounts
+        youtube_like_count: '0', // Will be updated by updateAllSongsViewCounts
         processed_at: new Date().toISOString(),
         mentions: video.mentions ?? [],
         thumbnail_url: `https://img.youtube.com/vi/${video.id}/0.jpg`
       };
-    }).filter(song => song !== null);
+    });
 
     // Store all songs in DynamoDB
     await Promise.all(
-      songsToStore.map(song => 
-        this.dynamoDBService.put('hololive_songs', song)
-          .catch(error => this.logger.error(`Error storing song ${song.id}:`, error))
-      )
+      songsToStore.map(async song => {
+        try {
+          await this.dynamoDBService.put('hololive_songs', song);
+          this.logger.debug(`Stored song ${song.id}`);
+        } catch (error) {
+          this.logger.error(`Error storing song ${song.id}:`, error);
+        }
+      })
     );
 
-    this.logger.log(`Processed ${songsToStore.length} ${songType} songs in batch`);
+    this.logger.log(`Processed ${songsToStore.length} ${songType} songs`);
   }
 
   async fetchAndFilterSongs() {
     try {
       this.logger.debug('Starting song fetch and filter process...');
 
-      // Purge existing data first
-      await this.dynamoDBService.purgeTable('hololive_songs', ['YOUTUBE_OAUTH_TOKEN']);
+      // Check existing songs in database
+      const existingSongs = await this.dynamoDBService.scan('hololive_songs', undefined, undefined, undefined, true)
+        .then(songs => songs.filter(song => song.id !== OAUTH_DB_KEY));
+      
+      this.logger.debug(`Found ${existingSongs.length} existing songs in database`);
+
+      // Get date 14 days ago for filtering
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      const fromDate = fourteenDaysAgo.toISOString();
 
       this.logger.debug('Fetching and processing Hololive songs...');
 
-      // Search parameters
-      const originalParams: VideoSearchParams = {
+      // Search parameters - only add from date if we have existing data
+      const baseParams = {
         org: 'Hololive',
-        type: 'stream',
-        topic: 'Original_Song',
-        status: 'past',
         include: ['mentions'],
         limit: 50,
       };
 
+      const originalParams: VideoSearchParams = {
+        ...baseParams,
+        topic: 'Original_Song',
+        ...(existingSongs.length > 0 && { from: fromDate }),
+      };
+
       const coverParams: VideoSearchParams = {
-        org: 'Hololive',
-        type: 'stream',
+        ...baseParams,
         topic: 'Music_Cover',
-        status: 'past',
-        include: ['mentions'],
-        limit: 50,
+        ...(existingSongs.length > 0 && { from: fromDate }),
       };
 
       // Fetch all songs first
@@ -185,10 +179,11 @@ export class SongProcessingService {
         filterInstrumental: true,
       });
 
-      this.logger.log(`Found ${originalSongs.length} original songs and ${coverSongs.length} covers`);
+      const fetchDescription = existingSongs.length > 0 ? 'from the last 14 days' : 'from all time';
+      this.logger.log(`Found ${originalSongs.length} original songs and ${coverSongs.length} covers ${fetchDescription}`);
 
       // Process songs in batches
-      const batchSize = 50; // Increased batch size since we're using batch API
+      const batchSize = 50;
       const processSongsBatch = async (songs: VideoWithChannel[], type: 'original' | 'cover') => {
         for (let i = 0; i < songs.length; i += batchSize) {
           const batch = songs.slice(i, i + batchSize);
@@ -204,9 +199,73 @@ export class SongProcessingService {
         processSongsBatch(coverSongs, 'cover'),
       ]);
 
+      // After processing new songs, update view counts for all songs in the database
+      await this.updateAllSongsViewCounts();
+
       this.logger.log('Completed processing all songs');
     } catch (error) {
       this.logger.error('Error fetching and filtering songs:', error);
+      throw error;
+    }
+  }
+
+  private async updateAllSongsViewCounts(): Promise<void> {
+    try {
+      // Get all songs from the database
+      const allSongs = await this.dynamoDBService.scan('hololive_songs').then(songs => songs.filter(song => song.id !== OAUTH_DB_KEY));
+      if (!allSongs || allSongs.length === 0) {
+        return;
+      }
+
+      // Process in batches of 50 (YouTube API limit)
+      const batchSize = 50;
+      for (let i = 0; i < allSongs.length; i += batchSize) {
+        const batch = allSongs.slice(i, i + batchSize);
+        const videoIds = batch.map(song => song.id);
+        
+        // Get updated YouTube data
+        const youtubeData = !CALL_YOUTUBE ? batch.map(video => ({
+          id: video.id,
+          statistics: {
+            viewCount: '' + Math.floor(Math.random() * 1000000),
+            likeCount: '' + Math.floor(Math.random() * 1000000)
+          }
+        })) : await this.youtubeVideoService.getVideosByIds(videoIds);
+
+        // Create a map for easy lookup
+        const youtubeDataMap = new Map(youtubeData.map(data => [data.id, data]));
+
+        // Update each song in the batch
+        await Promise.all(
+          batch.map(async (song) => {
+            const youtubeStats = youtubeDataMap.get(song.id)?.statistics;
+            if (youtubeStats) {
+              const updatedSong = {
+                id: song.id,
+                title: song.title,
+                channel_id: song.channel_id,
+                channel: song.channel,
+                published_at: song.published_at,
+                available_at: song.available_at,
+                song_type: song.song_type,
+                duration: song.duration,
+                status: song.status,
+                mentions: song.mentions,
+                thumbnail_url: song.thumbnail_url,
+                youtube_view_count: youtubeStats.viewCount,
+                youtube_like_count: youtubeStats.likeCount,
+                processed_at: new Date().toISOString()
+              };
+              await this.dynamoDBService.put('hololive_songs', updatedSong)
+                .catch(error => this.logger.error(`Error updating song ${song.id}:`, error));
+            }
+          })
+        );
+
+        this.logger.debug(`Updated view counts for batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allSongs.length / batchSize)}`);
+      }
+    } catch (error) {
+      this.logger.error('Error updating view counts:', error);
       throw error;
     }
   }
