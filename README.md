@@ -72,7 +72,8 @@ Copy `.env.example` to `.env` and fill in the required values:
 ```env
 GOOGLE_OAUTH_CLIENT_ID=your_client_id
 GOOGLE_OAUTH_CLIENT_SECRET=your_client_secret
-DISCORD_WEBHOOK_URLS=your_webhook_urls
+DISCORD_ADMIN_WEBHOOK_URL=your_admin_webhook_url
+DISCORD_NOTIFICATION_WEBHOOK_URL=your_notification_webhook_url
 HOLODEX_API_KEY=your_holodex_api_key
 YOUTUBE_API_KEY=your_youtube_api_key
 ```
