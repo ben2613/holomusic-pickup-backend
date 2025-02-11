@@ -21,8 +21,7 @@ provider:
     YOUTUBE_API_KEY: ${env:YOUTUBE_API_KEY}
     CALL_YOUTUBE: ${env:CALL_YOUTUBE, 'true'}
     SONGS_TO_PICK: ${env:SONGS_TO_PICK, '50'}
-    # DynamoDB endpoint - only set in local development
-    DYNAMODB_ENDPOINT: ${self:custom.dynamodbEndpoint.DYNAMODB_ENDPOINT, ''}
+    DYNAMODB_LOCAL_ENDPOINT: ${env:DYNAMODB_LOCAL_ENDPOINT, 'http://localhost:8000'}
   iam:
     role:
       statements:
@@ -145,9 +144,6 @@ custom:
     useChildProcesses: true
     location: .
     lambdaPort: 3002
-  # Conditional DynamoDB endpoint for local development
-  dynamodbEndpoint: ${file(./serverless/dynamodb-endpoint.js)}
-  offlineHost: 'http://localhost:3000'
 
 package:
   individually: true

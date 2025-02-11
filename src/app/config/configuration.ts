@@ -57,7 +57,7 @@ export default (): AppConfig => ({
   },
   dynamodb: {
     region: process.env.DYNAMODB_REGION || 'ap-east-1',
-    endpoint: process.env.DYNAMODB_ENDPOINT || `https://dynamodb.${process.env.DYNAMODB_REGION || 'ap-east-1'}.amazonaws.com`,
+    endpoint: process.env.IS_LOCAL ? process.env.DYNAMODB_LOCAL_ENDPOINT : `https://dynamodb.${process.env.DYNAMODB_REGION || 'ap-east-1'}.amazonaws.com`,
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'dev_secret',
