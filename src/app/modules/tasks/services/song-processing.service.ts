@@ -78,10 +78,10 @@ export class SongProcessingService {
     const fourteenDaysAgo = new Date();
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
     
-    // Filter out videos older than 14 days
+    // Filter out videos newer than 14 days
     const videosToProcess = videos.filter(video => {
       const publishedAt = new Date(video.published_at);
-      return publishedAt >= fourteenDaysAgo;
+      return publishedAt <= fourteenDaysAgo;
     });
 
     if (videosToProcess.length === 0) {
