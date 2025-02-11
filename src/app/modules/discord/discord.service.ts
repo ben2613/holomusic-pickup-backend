@@ -32,9 +32,15 @@ export class DiscordService {
       return;
     }
 
+    // Add @everyone mention to all messages
+    const messageWithMention = {
+      ...message,
+      content: `@everyone${message.content ? ' ' + message.content : ''}`,
+    };
+
     try {
       await firstValueFrom(
-        this.httpService.post(webhookUrl, message)
+        this.httpService.post(webhookUrl, messageWithMention)
       );
       this.logger.debug(`Successfully sent message to webhook`);
     } catch (error) {
