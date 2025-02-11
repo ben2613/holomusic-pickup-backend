@@ -75,13 +75,13 @@ export class SongProcessingService {
   }
 
   private async processSongs(videos: VideoWithChannel[], songType: 'original' | 'cover'): Promise<void> {
-    const fourteenDaysAgo = new Date();
-    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     
-    // Filter out videos newer than 14 days
+    // Filter out videos newer than 7 days
     const videosToProcess = videos.filter(video => {
       const publishedAt = new Date(video.published_at);
-      return publishedAt <= fourteenDaysAgo;
+      return publishedAt <= sevenDaysAgo;
     });
 
     if (videosToProcess.length === 0) {
