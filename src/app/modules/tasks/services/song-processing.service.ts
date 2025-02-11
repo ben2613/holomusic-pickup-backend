@@ -148,7 +148,7 @@ export class SongProcessingService {
       // Search parameters - only add from date if we have existing data
       const baseParams = {
         org: 'Hololive',
-        include: ['mentions'],
+        include: ['mentions', 'description'],
         limit: 50,
       };
 
