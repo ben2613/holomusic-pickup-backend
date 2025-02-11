@@ -92,7 +92,7 @@ export class YouTubePlaylistService {
       this.logger.log(`Successfully cleared playlist ${id}`);
     } catch (error) {
       this.logger.error(`Error clearing playlist ${id}:`, error);
-      throw error;
+      // throw error;
     }
   }
 
@@ -119,10 +119,10 @@ export class YouTubePlaylistService {
         )
       );
     } catch (error) {
-      if (error instanceof AxiosError) {
-        throw new Error(`Failed to add video to playlist: ${error.message}`);
-      }
-      throw error;
+      // if (error instanceof AxiosError) {
+      //   throw new Error(`Failed to add video to playlist: ${error.message}`);
+      // }
+      // throw error;
     }
   }
 
