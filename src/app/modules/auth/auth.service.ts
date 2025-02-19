@@ -80,6 +80,7 @@ export class AuthService {
         expiry_date: tokens.expiry_date,
         token_type: tokens.token_type,
         scope: tokens.scope,
+        created_at: new Date().toISOString(), // YYYY-MM-DD HH:MM:SS
       });
 
       // Send success message to Discord
@@ -155,6 +156,8 @@ export class AuthService {
         expiry_date: credentials.expiry_date,
         token_type: credentials.token_type,
         scope: credentials.scope,
+        created_at: storedTokens.created_at,
+        updated_at: new Date().toISOString(),
       });
 
       this.logger.log('Token refresh completed successfully');

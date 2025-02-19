@@ -17,6 +17,17 @@ export class OAuthService {
   ) {}
 
   async checkOAuthToken(): Promise<void> {
+    // every 3 days, remove the token from the db
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+    const token = await this.dynamoDBService.get('hololive_songs', { id: OAUTH_DB_KEY });
+    console.log(token.created_at + ' ' + threeDaysAgo.toISOString())
+    
+    if (token && token.created_at < threeDaysAgo.toISOString()) {
+      await this.dynamoDBService.delete('hololive_songs', { id: OAUTH_DB_KEY });
+    }
+
     this.logger.log('Checking OAuth token status...');
     
     try {
